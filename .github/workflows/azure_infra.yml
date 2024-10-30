@@ -13,10 +13,10 @@ jobs:
     
     - name: debug secrets
       run: |
-        echo "secrets.RG=<${{ secrets.RG }}>"                | sed -r 's/(.)/\1 /g'
-        echo "secrets.ASP=<${{ secrets.ASP }}>"               | sed -r 's/(.)/\1 /g'
-        echo "secrets.WEBAPP=<${{ secrets.WEBAPP }}>"            | sed -r 's/(.)/\1 /g'
-        echo "secrets.LOC=<${{ secrets.LOC }}>"               | sed -r 's/(.)/\1 /g'
+        echo "secrets.RG=<${{ secrets.RG }}>"              | sed -r 's/(.)/\1 /g'
+        echo "secrets.ASP=<${{ secrets.ASP }}>"            | sed -r 's/(.)/\1 /g'
+        echo "secrets.WEBAPP=<${{ secrets.WEBAPP }}>"      | sed -r 's/(.)/\1 /g'
+        echo "secrets.LOC=<${{ secrets.LOC }}>"            | sed -r 's/(.)/\1 /g'
         echo "secrets.AZURE_CREDENTIALS=<${{ secrets.AZURE_CREDENTIALS }}>" | sed -r 's/(.)/\1 /g'
     
     - name: Azure Login
@@ -32,3 +32,8 @@ jobs:
           az appservice plan create -g ${{ secrets.RG }} -n ${{ secrets.ASP }} --is-linux --number-of-workers 1 --sku B1 --location ${{ secrets.LOC }}
           echo "az webapp create -g ${{ secrets.RG }} -p ${{ secrets.ASP }} -n ${{ secrets.WEBAPP }}  --runtime node:20-lts"
           az webapp create -g ${{ secrets.RG }} -p ${{ secrets.ASP }} -n "${{ secrets.WEBAPP }}"  --runtime "node:20-lts"
+          az extension add -n application-insights
+          locName=`az group show --name ${{ secrets.RG }} --query location --output tsv`
+          az monitor app-insights component create --app apimon${{ secrets.WEBAPP }} --location $locName --kind web -g ${{ secrets.RG }} --application-type web --retention-time 30
+          instrumentationKey=`az monitor app-insights component show --app apimon${{ secrets.WEBAPP }} --resource-group ${{ secrets.RG }} --query  "instrumentationKey" --output tsv`
+          az webapp config appsettings set --name ${{ secrets.WEBAPP }} --resource-group ${{ secrets.RG }} --settings APPINSIGHTS_INSTRUMENTATIONKEY=$instrumentationKey APPLICATIONINSIGHTS_CONNECTION_STRING=InstrumentationKey=$instrumentationKey ApplicationInsightsAgent_EXTENSION_VERSION=~2
